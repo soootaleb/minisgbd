@@ -12,3 +12,7 @@ class RelSchema:
 
     def __str__(self):
         return c(self.name) + ' with columns ' + str(self.columns_types)
+
+class PageId:
+    Idx = None
+    FileId = None
