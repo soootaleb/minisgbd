@@ -1,5 +1,4 @@
-
-from helpers import cprint
+from helpers import *
 import importlib
 
 commands = importlib.import_module('commands')
