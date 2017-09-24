@@ -24,4 +24,6 @@ write_page(pid2, map(str.upper, PAGE_CONTENT))
 read_page(pid1, content1)
 read_page(pid2, content2)
 
+manager = GlobalManager()
+
 exit(0)

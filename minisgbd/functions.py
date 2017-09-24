@@ -1,5 +1,5 @@
-from minisgbd.models import *
-from minisgbd.exceptions import *
+from models import *
+from exceptions import *
 import os, uuid
 
 def create_file(file_id):

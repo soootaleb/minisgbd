@@ -1,5 +1,5 @@
-from minisgbd.settings import *
-from minisgbd.exceptions import *
+from settings import *
+from exceptions import *
 
 def c(val, color='BOLD'):
     return COLORS[color] + str(val) + COLORS['ENDC']
