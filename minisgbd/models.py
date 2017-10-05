@@ -1,7 +1,8 @@
 from helpers import *
+from settings import *
 from functions import *
 
-import uuid
+import uuid, cPickle as pickle
 
 class RelDef:
     file_id = None
@@ -40,6 +41,15 @@ class GlobalManager:
 
     def __init__(self):
         self.dbdef = DbDef()
+        try:
+            with open(os.path.join(DATABASE, 'Catalog.def'), 'rb') as obj:
+                self.dbdef = pickle.load(obj)
+        except Exception:
+            pass
+
+    def finish(self):
+        with open(os.path.join(DATABASE, 'Catalog.def'), 'wb') as output:
+            pickle.dump(self.dbdef, output, pickle.HIGHEST_PROTOCOL)
 
 class PageId:
     idx = None

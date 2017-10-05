@@ -1,6 +1,20 @@
 from models import *
 from exceptions import *
-import os, uuid
+import os, uuid, time
+
+F = 2
+
+pages_states = dict()
+
+def get_lru():
+    lru_pid = None
+    lru_time = None
+    for k, v in pages_states.items():
+        if lru_time is None or lru_time > v['used']
+            lru_time = v['used']
+            lru_pid = k
+
+    return lru_pid
 
 def create_file(file_id):
     check_file_id(file_id)
@@ -31,3 +45,27 @@ def write_page(pid, buffer):
     f.seek(pid.idx)
     f.write(bytes(DATA_SEP.join(buffer), 'utf-8'))
     f.close()
+
+def get_page(pid):
+    if pid not in pages_states.keys():
+        arr = []
+        read_page(pid, arr)
+        if len(pages_states.keys) >= F:
+            lru_pid = get_lru()
+            del pages_states[lru_pid]
+        pages_states[pid] = {
+            'pin_count': 1,
+            'dirty': False,
+            'page': arr,
+            'used': time.time()
+        }
+        return arr
+    else:
+        pages_states[pid]['pin_count'] += 1
+        pages_states[pid]['used'] = time.time()
+        return pages_states[pid]['page']
+
+def free_page(pid, dirty):
+    if dirty:
+        pages_states[pid]['dirty'] = True
+    pages_states[pid]['pin_count'] -= 1
