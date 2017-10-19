@@ -1,5 +1,6 @@
-from models import *
+from helpers import *
 from exceptions import *
+
 import os, uuid, time
 
 F = 2
@@ -10,7 +11,7 @@ def get_lru():
     lru_pid = None
     lru_time = None
     for k, v in pages_states.items():
-        if lru_time is None or lru_time > v['used']
+        if lru_time is None or lru_time > v['used']:
             lru_time = v['used']
             lru_pid = k
 
@@ -24,6 +25,7 @@ def create_file(file_id):
     else: open(os.path.join(DATABASE, file_name), 'wb')
 
 def add_page(file_id):
+    from models import PageId
     check_file_id(file_id)
     pid = PageId(file_id)
     file_name = mount_file_name(pid.file_id)
@@ -53,7 +55,7 @@ def get_page(pid):
         if len(pages_states.keys) >= F:
             lru_pid = get_lru()
             del pages_states[lru_pid]
-        pages_states[pid] = {
+        pages_states[pid.idx] = {
             'pin_count': 1,
             'dirty': False,
             'page': arr,
@@ -61,11 +63,11 @@ def get_page(pid):
         }
         return arr
     else:
-        pages_states[pid]['pin_count'] += 1
-        pages_states[pid]['used'] = time.time()
-        return pages_states[pid]['page']
+        pages_states[pid.idx]['pin_count'] += 1
+        pages_states[pid.idx]['used'] = time.time()
+        return pages_states[pid.idx]['page']
 
 def free_page(pid, dirty):
     if dirty:
-        pages_states[pid]['dirty'] = True
-    pages_states[pid]['pin_count'] -= 1
+        pages_states[pid.idx]['dirty'] = True
+    pages_states[pid.idx]['pin_count'] -= 1

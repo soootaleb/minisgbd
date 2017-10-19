@@ -17,6 +17,21 @@ def help():
 def create(args):
     '''
     Creates a relation object using the global manager's DbDef object.
-    The creation involves creating the attached file
+    The creation involves creating the attached file.
+    @syntax: create <relname> <field> <field>...
+    @param1: relname The relation name to create
+    @param2: num_columns The number of columns in the relation
+    @paramN: value... The relations values (fields). N must be == to @param2 num_columns + 2
+    @example: create user firstname lastname
     '''
-    manager.dbdef.create_relation(args[0], args[1], args[2:])
+    manager.create_relation(args[0], args[1], args[2:])
+
+def insert(args):
+    '''
+    Insert a record in a relation.
+    @syntax: insert <relname> <value> <value>...
+    @param1: relname The relation name to insert a record in
+    @paramN: value... The record values (fields)
+    @example: insert user john doe
+    '''
+    manager.insert(args[0], args[1:])
