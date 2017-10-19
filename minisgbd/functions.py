@@ -1,5 +1,6 @@
-from models import *
+from helpers import *
 from exceptions import *
+
 import os, uuid, time
 
 F = 2
@@ -10,7 +11,7 @@ def get_lru():
     lru_pid = None
     lru_time = None
     for k, v in pages_states.items():
-        if lru_time is None or lru_time > v['used']
+        if lru_time is None or lru_time > v['used']:
             lru_time = v['used']
             lru_pid = k
 
@@ -24,6 +25,7 @@ def create_file(file_id):
     else: open(os.path.join(DATABASE, file_name), 'wb')
 
 def add_page(file_id):
+    from models import PageId
     check_file_id(file_id)
     pid = PageId(file_id)
     file_name = mount_file_name(pid.file_id)
