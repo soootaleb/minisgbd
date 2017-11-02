@@ -4,6 +4,8 @@ from functions import *
 
 import uuid, pickle
 
+# TODO: Create Buffer Manager & DiskManager class to group functions
+
 class PageId:
     idx = None
     file_id = None
@@ -52,6 +54,7 @@ class HeapFile:
     def __init__(self, relation):
         self.relation = relation
 
+    # TODO: do not write modification on disk but use Buffer Manager instead
     def create_header(self):
         pid = add_page(self.relation.file_id)
         write_page(pid, ['0'])
