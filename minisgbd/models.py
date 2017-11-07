@@ -25,6 +25,7 @@ class Record:
 class RelDef:
     file_id = None
     rel_schema = None
+    record_size = 0
 
     def __init__(self, file_id, rel_schema):
         self.file_id = file_id
@@ -154,9 +155,24 @@ class GlobalManager:
         with open(os.path.join(DATABASE, 'Catalog.def'), 'wb') as output:
             pickle.dump(self.dbdef, output, pickle.HIGHEST_PROTOCOL)
 
+    def calculate_record_size(self, columns_types):
+        count = 0
+        for column in columns_types:
+            if column == 'int' or column == 'float':
+                count += 4
+            elif column[:6] == 'string':
+                try:
+                    count += int(column[6:])
+                except Exception:
+                    raise MiniColumnTypeError('Type {} is not correct'.format(column))
+            else:
+                raise MiniColumnTypeError('Type {} is not correct'.format(column))
+        return count
+
     def create_relation(self, name, columns_number, columns_types):
         rel_schema = RelSchema(name, columns_number, columns_types)
         rel_def = RelDef(self.dbdef.counter, rel_schema)
+        rel_def.record_size = GlobalManager.calculate_record_size(columns_types)
         self.dbdef.relations.append(rel_def)
         self.dbdef.counter += 1
         self.buffer.disk.create_file(rel_def.file_id)

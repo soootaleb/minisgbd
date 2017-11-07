@@ -6,3 +6,6 @@ class MiniFileExistsError(FileExistsError):
 
 class MiniBufferValueError(ValueError):
     pass
+
+class MiniColumnTypeError(ValueError):
+    pass

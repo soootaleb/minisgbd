@@ -12,7 +12,7 @@ except:
 # CREATE
 
 for args in [
-    ['create', 'user', 'string', 'string']
+    ['create', 'user', 'int', 'string20']
 ]:
     cprint(args)
     create(args)
