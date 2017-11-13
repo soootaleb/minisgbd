@@ -10,6 +10,14 @@ class TestGlobalManager(unittest.TestCase):
     def setUp(self):
         self.instance = GlobalManager()
 
+    def test_calculate_slot_count(self):
+        self.assertEqual(0, self.instance.calculate_slot_count(10, 10))
+        self.assertEqual(1, self.instance.calculate_slot_count(10, 11))
+        self.assertEqual(1, self.instance.calculate_slot_count(10, 21))
+        self.assertEqual(2, self.instance.calculate_slot_count(10, 22))
+        self.assertEqual(9, self.instance.calculate_slot_count(100, 1000))
+
+
     def test_calculate_record_size(self):
         self.assertEqual(4, self.instance.calculate_record_size(['int']))
         self.assertEqual(4, self.instance.calculate_record_size(['float']))

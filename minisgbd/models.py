@@ -1,9 +1,12 @@
 from helpers import *
 from settings import *
-from functions import *
 from exceptions import *
 
-import uuid, pickle, os, time
+import uuid, pickle, os, time, math
+
+class HeaderPageInfo:
+    pages_slots = None
+    nb_pages_de_donnees = None
 
 class PageId:
     idx = None
@@ -24,8 +27,9 @@ class Record:
 
 class RelDef:
     file_id = None
+    slot_count = None
     rel_schema = None
-    record_size = 0
+    record_size = None
 
     def __init__(self, file_id, rel_schema):
         self.file_id = file_id
@@ -54,11 +58,53 @@ class HeapFile:
     def __init__(self, relation):
         self.relation = relation
 
-    def create_header(self, buffer):
-        pid = buffer.disk.add_page(self.relation.file_id)
-        page = buffer.get_page(pid)
+    def create_header(self, buffer_manager):
+        pid = buffer_manager.disk.add_page(self.relation.file_id)
+        page = buffer_manager.get_page(pid)
         page.append(0)
-        buffer.free_page(pid, True)
+        buffer_manager.free_page(pid, True)
+
+    def read_header_page_info(self, buffer, hpi):
+        '''
+        Hydrate the HeaderPageInfo (hpi) with data from memory buffer
+        '''
+        hpi.pages_slots = dict()
+        hpi.nb_pages_de_donnees = buffer[0]
+        for p in buffer[1:]:
+            (pid, slots) = p.split(DATA_SEP)
+            hpi.pages_slots[pid] = slots
+
+    def write_header_page_info(self, buffer, hpi):
+        buffer.append(hpi.nb_pages_de_donnees)
+        for (key, value) in hpi.pages_slots.items():
+            buffer.append(str(key) + DATA_SEP + str(value))
+
+    def get_header_page_info(self, buffer_manager, hpi):
+        pid = PageId(self.relation.file_id)
+        pid.idx = 0
+        page = buffer_manager.get_page(pid)
+        self.read_header_page_info(page, hpi)
+        buffer_manager.free_page(pid, False)
+
+    def update_header_with_new_data_page(self, buffer_manager, pid):
+        hpid = PageId(self.relation.file_id)
+        hpid.idx = 0
+        page = buffer_manager.get_page(hpid)
+        hpi = HeaderPageInfo()
+        self.read_header_page_info(page, hpi)
+        hpi.pages_slots[pid.idx] = self.relation.slot_count
+        self.write_header_page_info(page, hpi)
+        buffer_manager.free_page(pid, True)
+
+    def update_header_taken_slot(self, buffer_manager, pid):
+        hpid = PageId(self.relation.file_id)
+        hpid.idx = 0
+        page = buffer_manager.get_page(hpid)
+        hpi = HeaderPageInfo()
+        self.read_header_page_info(page, hpi)
+        hpi.pages_slots[pid.idx] -= 1
+        self.write_header_page_info(page, hpi)
+        buffer_manager.free_page(hpid, True)
 
 class DiskManager:
     
@@ -109,19 +155,29 @@ class BufferManager:
         return lru_pid
     
     def get_page(self, pid):
+        # If the PageId is not in memory, we call the DiskManager to read the page from disk
         if pid not in self.pages_states.keys():
             arr = []
             self.disk.read_page(pid, arr)
-            if len(self.pages_states.keys()) >= self.F:
+            
+            # If the buffer pool is full, we delete the least recently used (LRU)
+            if len(self.pages_states) == self.F:
                 lru_pid = self.get_lru()
                 del self.pages_states[lru_pid]
+
+            # We save the read page in the buffer pool
             self.pages_states[pid.idx] = {
+                'bitmap': bytes(),
                 'pin_count': 1,
                 'dirty': False,
                 'page': arr,
                 'used': time.time()
             }
+
+            # We return page content
             return arr
+
+        # If the PageId is already in memory, we just update the frame & return the page content from memory
         else:
             self.pages_states[pid.idx]['pin_count'] += 1
             self.pages_states[pid.idx]['used'] = time.time()
@@ -169,10 +225,14 @@ class GlobalManager:
                 raise MiniColumnTypeError('Type {} is not correct'.format(column))
         return count
 
+    def calculate_slot_count(self, record_size, page_size):
+        return math.floor(page_size / (record_size + 1))        
+
     def create_relation(self, name, columns_number, columns_types):
         rel_schema = RelSchema(name, columns_number, columns_types)
         rel_def = RelDef(self.dbdef.counter, rel_schema)
         rel_def.record_size = GlobalManager.calculate_record_size(columns_types)
+        rel_def.slot_count = GlobalManager.calculate_slot_count(rel_def.record_size, PAGE_SIZE)
         self.dbdef.relations.append(rel_def)
         self.dbdef.counter += 1
         self.buffer.disk.create_file(rel_def.file_id)

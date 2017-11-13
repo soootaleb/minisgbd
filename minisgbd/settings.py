@@ -1,16 +1,8 @@
 import os, uuid
 
 DATABASE = os.path.join('minisgbd', 'db')
-
 DATA_SEP = '|||'
-
-PAGE_CONTENT = [
-    'Hello World',
-    'How are you ?',
-    'Bye bye world'
-]
-
-PAGE_SIZE = len(bytes(DATA_SEP.join(PAGE_CONTENT), 'utf-8'))
+PAGE_SIZE = 4096
 
 COLORS = {
     'HEADER': '\033[95m',
