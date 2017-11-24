@@ -52,11 +52,20 @@ class DbDef:
     counter = 0
     relations = []
 
+class PageBitmapInfo:
+    slot_status = []
+
 class HeapFile:
     relation = None
 
     def __init__(self, relation):
         self.relation = relation
+
+    def read_page_bitmap_info(self, buffer, pbi):
+        pbi.slot_status = buffer[:self.relation.slot_count]
+
+    def write_page_bitmap_info(self, buffer, pbi):
+        buffer += pbi.slot_status[self.relation.slot_count]
 
     def create_header(self, buffer_manager):
         pid = buffer_manager.disk.add_page(self.relation.file_id)
