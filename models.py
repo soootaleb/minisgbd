@@ -5,7 +5,7 @@ from exceptions import *
 import uuid, pickle, os, time, math
 
 class HeaderPageInfo:
-    pages_slots = None
+    pages_slots = dict()
     nb_pages_de_donnees = None
 
 class PageId:
@@ -114,6 +114,37 @@ class HeapFile:
         hpi.pages_slots[pid.idx] -= 1
         self.write_header_page_info(page, hpi)
         buffer_manager.free_page(hpid, True)
+
+    def write_record_in_buffer(self, record, buffer, position):
+        data = bytes()
+        counter = 0
+        for attr in record.attributes:
+            column_type = self.relation.rel_schema.columns_types[counter]
+            if column_type == int:
+                data += int(attr)
+            elif column_type == float:
+                data += float(attr)
+            else:
+                data += attr
+
+        buffer[positon] = data
+
+    def add_data_page(self, buffer_manager):
+        pid = buffer_manager.disk.add_page(self.relation.file_id)
+        self.update_header_with_new_data_page(buffer_manager, pid)
+        return pid
+
+    def get_free_pid(self, buffer_manager):
+        hpi = HeaderPageInfo()
+        self.get_header_page_info(buffer_manager, hpi)
+        pid = PageId(self.relation.file_id)
+        # Looking for free slots
+        for (key, value) in hpi.pages_slots.items():
+            if value > 0:
+                pid.idx = key
+                return pid
+        # If no slot has been found free
+        return self.add_data_page(buffer_manager)
 
 class DiskManager:
     
