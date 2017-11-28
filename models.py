@@ -63,17 +63,19 @@ class PageBitmapInfo:
     slots_status = [] # Will be a list of bytes from integers using int.to_bytes
 
 class HeapFile:
+    buffer = None
     relation = None
 
-    def __init__(self, relation):
+    def __init__(self, relation, buffer):
+        self.buffer = buffer
         self.relation = relation
 
-    def insert_record(self, buffer_manager, record):
-        pid = self.get_free_page_id(buffer_manager)
-        self.insert_record_in_page(buffer_manager, record, pid)
+    def insert_record(self, record):
+        pid = self.get_free_page_id(self.buffer)
+        self.insert_record_in_page(self.buffer, record, pid)
 
-    def insert_record_in_page(self, buffer_manager, record, pid):
-        buffer = buffer_manager.get_page(pid)
+    def insert_record_in_page(self, record, pid):
+        buffer = self.buffer.get_page(pid)
         pbi = PageBitmapInfo()
         self.read_page_bitmap_info(buffer, pbi)
         for (idx, page_slot) in enumerate(pbi.slots_status):
@@ -84,7 +86,7 @@ class HeapFile:
                 self.write_record_in_buffer(record, buffer, position)
                 pbi.slots_status[idx] = (1).to_bytes(1, byteorder='big') # Mark as used in bitmap
                 self.write_page_bitmap_info(buffer, pbi)
-                buffer_manager.free_page(pid, True) # Since we inserted a record in a page, it's obviously altered and need persistance on disk
+                self.buffer.free_page(pid, True) # Since we inserted a record in a page, it's obviously altered and need persistance on disk
                 return
 
     def read_page_bitmap_info(self, buffer, pbi):
@@ -97,11 +99,11 @@ class HeapFile:
     def write_page_bitmap_info(self, buffer, pbi):
         buffer += pbi.slots_status[self.relation.slot_count]
 
-    def create_header(self, buffer_manager):
-        pid = buffer_manager.disk.add_page(self.relation.file_id)
-        page = buffer_manager.get_page(pid)
+    def create_header(self):
+        pid = self.buffer.disk.add_page(self.relation.file_id)
+        page = self.buffer.get_page(pid)
         page.append(0)
-        buffer_manager.free_page(pid, True)
+        self.buffer.free_page(pid, True)
 
     def read_header_page_info(self, buffer, hpi):
         '''
@@ -118,32 +120,32 @@ class HeapFile:
         for (key, value) in hpi.pages_slots.items():
             buffer.append(str(key) + DATA_SEP + str(value))
 
-    def get_header_page_info(self, buffer_manager, hpi):
+    def get_header_page_info(self, hpi):
         pid = PageId(self.relation.file_id)
         pid.idx = 0
-        page = buffer_manager.get_page(pid)
+        page = self.buffer.get_page(pid)
         self.read_header_page_info(page, hpi)
-        buffer_manager.free_page(pid, False)
+        self.buffer.free_page(pid, False)
 
-    def update_header_with_new_data_page(self, buffer_manager, pid):
+    def update_header_with_new_data_page(self, pid):
         hpid = PageId(self.relation.file_id)
         hpid.idx = 0
-        page = buffer_manager.get_page(hpid)
+        page = self.buffer.get_page(hpid)
         hpi = HeaderPageInfo()
         self.read_header_page_info(page, hpi)
         hpi.pages_slots[pid.idx] = self.relation.slot_count
         self.write_header_page_info(page, hpi)
-        buffer_manager.free_page(pid, True)
+        self.buffer.free_page(pid, True)
 
-    def update_header_taken_slot(self, buffer_manager, pid):
+    def update_header_taken_slot(self, pid):
         hpid = PageId(self.relation.file_id)
         hpid.idx = 0
-        page = buffer_manager.get_page(hpid)
+        page = self.buffer.get_page(hpid)
         hpi = HeaderPageInfo()
         self.read_header_page_info(page, hpi)
         hpi.pages_slots[pid.idx] -= 1
         self.write_header_page_info(page, hpi)
-        buffer_manager.free_page(hpid, True)
+        self.buffer.free_page(hpid, True)
 
     def write_record_in_buffer(self, record, buffer, position):
         data = bytes()
@@ -159,14 +161,14 @@ class HeapFile:
 
         buffer[positon] = data
 
-    def add_data_page(self, buffer_manager):
-        pid = buffer_manager.disk.add_page(self.relation.file_id)
-        self.update_header_with_new_data_page(buffer_manager, pid)
+    def add_data_page(self):
+        pid = self.buffer.disk.add_page(self.relation.file_id)
+        self.update_header_with_new_data_page(self.buffer, pid)
         return pid
 
-    def get_free_page_id(self, buffer_manager):
+    def get_free_page_id(self):
         hpi = HeaderPageInfo()
-        self.get_header_page_info(buffer_manager, hpi)
+        self.get_header_page_info(self.buffer, hpi)
         pid = PageId(self.relation.file_id)
         # Looking for free slots
         for (key, value) in hpi.pages_slots.items():
@@ -174,7 +176,7 @@ class HeapFile:
                 pid.idx = key
                 return pid
         # If no slot has been found free
-        return self.add_data_page(buffer_manager)
+        return self.add_data_page(self.buffer)
 
 class DiskManager:
     
@@ -275,7 +277,7 @@ class GlobalManager:
 
     def refresh_heap_files(self):
         for rel_def in self.dbdef.relations:
-            self.files.append(HeapFile(rel_def))
+            self.files.append(HeapFile(rel_def, self.buffer))
 
     def finish(self):
         with open(os.path.join(DATABASE, 'Catalog.def'), 'wb') as output:
@@ -306,7 +308,7 @@ class GlobalManager:
         self.dbdef.relations.append(rel_def)
         self.dbdef.counter += 1
         self.buffer.disk.create_file(rel_def.file_id)
-        hf = HeapFile(rel_def)
+        hf = HeapFile(rel_def, self.buffer)
         hf.create_header(self.buffer)
         self.files.append(hf)
 
