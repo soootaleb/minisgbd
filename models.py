@@ -36,6 +36,15 @@ class RelDef:
         self.rel_schema = rel_schema
 
 class RelSchema:
+    '''
+        Defines a relation (table) schema
+
+        :name: The relation (table) name
+
+        :columns_types: The type of each column of the relation (table)
+
+        :columns_number: The total amount of columns in this relation (table).
+    '''
     name = 'DEFAULT_RELSCHEMA_NAME'
     columns_types = []
     columns_number = 0
@@ -184,15 +193,36 @@ class HeapFile:
         return self.add_data_page(self.buffer)
 
 class DiskManager:
+    '''
+        Each relation is stored into a dedicated file named Data_x.rf
+        where x is an integer >= 0 and is named the ```file_id``` into PageId model
+    '''
     
     def create_file(self, file_id):
+        '''
+            Creates an OS file into the ```settings.DATABASE``` folder.
+            The file is named Data_x.rf where x is the ```file_id``` argument
+
+            Raises a MiniFileExistsError exception if a file already exists with the deducted name
+
+            :file_id: The file identifier in Data_<file_id>.rf
+            :rtypes: None
+        '''
         check_file_id(file_id)
         files = os.listdir(DATABASE)
         file_name = mount_file_name(file_id)
         if file_name in files: raise MiniFileExistsError('File {} already exists'.format(file_name))
-        else: open(os.path.join(DATABASE, file_name), 'wb')
+        else: open(os.path.join(DATABASE, file_name), 'wb').close()
 
     def add_page(self, file_id):
+        '''
+            "Adds" a page to the file specified by the file_id. It actually adds nothing but returns the PageId to use to write on this page.
+
+            In practice, it opens a file in _append binary_ mode & uses ```file.tell()``` to get the last position to write on.
+
+            :file_id: The file identifier to add a page to
+            :rtype: PageId with ```file_id``` is the one specified & ```idx``` is the offset of the end of the file.
+        '''
         check_file_id(file_id)
         pid = PageId(file_id)
         file_name = mount_file_name(pid.file_id)
@@ -202,6 +232,11 @@ class DiskManager:
         return pid
 
     def read_page(self, pid, buffer):
+        '''
+            Reads a disk file page described by pid arg & loads the content as strings (not bytes) into the buffer.
+
+            :pid: Uses pid to pid.get_file_name() & file.seek(pid.idx) before f.read(PAGE_SIZE)
+        '''
         check_buffer(buffer)
         f = open(os.path.join(DATABASE, pid.get_file_name()), 'rb')
         f.seek(pid.idx)
@@ -210,10 +245,18 @@ class DiskManager:
         f.close()
 
     def write_page(self, pid, buffer):
+        '''
+            Writes content of the buffer onto the file corresponding to the pid arg.
+
+            - It writes into the file with id ```pid.file_id```
+            - It writes at the page offset ```pid.idx``` using file.seek()
+            - ```None``` is replaced by ```''``` (empty string)
+            - Columns (i.e buffer values) are separated using the ```settings.DATA_SEP```
+        '''
         check_buffer(buffer)
         f = open(os.path.join(DATABASE, pid.get_file_name()), 'rb+')
         f.seek(pid.idx)
-        f.write(bytes(DATA_SEP.join(buffer), 'utf-8'))
+        f.write(bytes(DATA_SEP.join([o if o is not None else '' for o in buffer]), 'utf-8'))
         f.close()
 
 class BufferManager:

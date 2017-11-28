@@ -1,7 +1,7 @@
 TODO:
 
 1. ~~Refactor buffer_manager~~
-2. Document all methods (classes)
+2. Document all methods (classes) => go for tests
 3. Draw an overview diagram
 4. Debug / Normalize diagram
 

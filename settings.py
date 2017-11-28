@@ -1,6 +1,6 @@
 import os, uuid
 
-DATABASE = os.path.join('minisgbd', 'db')
+DATABASE = 'db'
 DATA_SEP = '|||'
 PAGE_SIZE = 4096
 
