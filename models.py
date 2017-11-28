@@ -53,7 +53,14 @@ class DbDef:
     relations = []
 
 class PageBitmapInfo:
-    slot_status = []
+    '''Deserialized version of the page bitmap'''
+
+    '''
+    A list of bytes, either with value 0 or 1 (slot used or not)
+    The list length should therefore be exactly the slot count of the page
+    The value indice is its position on the page (guess 0 indice won't be used)
+    '''
+    slots_status = [] # Will be a list of bytes from integers using int.to_bytes
 
 class HeapFile:
     relation = None
@@ -61,11 +68,34 @@ class HeapFile:
     def __init__(self, relation):
         self.relation = relation
 
+    def insert_record(self, buffer_manager, record):
+        pid = self.get_free_page_id(buffer_manager)
+        self.insert_record_in_page(buffer_manager, record, pid)
+
+    def insert_record_in_page(self, buffer_manager, record, pid):
+        buffer = buffer_manager.get_page(pid)
+        pbi = PageBitmapInfo()
+        self.read_page_bitmap_info(buffer, pbi)
+        for (idx, page_slot) in enumerate(pbi.slots_status):
+            # page_slot is an element of slots_status, so a bytes either to 0 or 1
+            if not int(page_slot):
+                # Position is bytes of bitmap & free page index by each record size bytes
+                position = self.relation.record_size * idx + self.relation.slot_count
+                self.write_record_in_buffer(record, buffer, position)
+                pbi.slots_status[idx] = (1).to_bytes(1, byteorder='big') # Mark as used in bitmap
+                self.write_page_bitmap_info(buffer, pbi)
+                buffer_manager.free_page(pid, True) # Since we inserted a record in a page, it's obviously altered and need persistance on disk
+                return
+
     def read_page_bitmap_info(self, buffer, pbi):
-        pbi.slot_status = buffer[:self.relation.slot_count]
+        '''
+            Takes the first ```HeapFile.relation.slot_count``` values from the buffer to fill
+            the ```PageBitmapInfo.slots_status```
+        '''
+        pbi.slots_status = buffer[:self.relation.slot_count]
 
     def write_page_bitmap_info(self, buffer, pbi):
-        buffer += pbi.slot_status[self.relation.slot_count]
+        buffer += pbi.slots_status[self.relation.slot_count]
 
     def create_header(self, buffer_manager):
         pid = buffer_manager.disk.add_page(self.relation.file_id)
@@ -75,7 +105,7 @@ class HeapFile:
 
     def read_header_page_info(self, buffer, hpi):
         '''
-        Hydrate the HeaderPageInfo (hpi) with data from memory buffer
+            Hydrate the HeaderPageInfo (hpi) with data from memory buffer
         '''
         hpi.pages_slots = dict()
         hpi.nb_pages_de_donnees = buffer[0]
@@ -134,7 +164,7 @@ class HeapFile:
         self.update_header_with_new_data_page(buffer_manager, pid)
         return pid
 
-    def get_free_pid(self, buffer_manager):
+    def get_free_page_id(self, buffer_manager):
         hpi = HeaderPageInfo()
         self.get_header_page_info(buffer_manager, hpi)
         pid = PageId(self.relation.file_id)
