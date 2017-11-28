@@ -13,7 +13,6 @@ def mount_file_name(file_id):
 def check_buffer(buffer):
     if type(buffer) is None: raise MiniBufferValueError('The buffer specified is None')
     if type(buffer) is not list: raise MiniBufferValueError('The buffer specified is not an array')
-    if len(buffer) > 0: raise MiniBufferValueError('The buffer specified is not empty')
 
 def check_file_id(file_id):
     '''

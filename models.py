@@ -94,9 +94,11 @@ class HeapFile:
             Takes the first ```HeapFile.relation.slot_count``` values from the buffer to fill
             the ```PageBitmapInfo.slots_status```
         '''
+        check_buffer(buffer)
         pbi.slots_status = buffer[:self.relation.slot_count]
 
     def write_page_bitmap_info(self, buffer, pbi):
+        check_buffer(buffer)
         buffer += pbi.slots_status[self.relation.slot_count]
 
     def create_header(self):
@@ -109,6 +111,7 @@ class HeapFile:
         '''
             Hydrate the HeaderPageInfo (hpi) with data from memory buffer
         '''
+        check_buffer(buffer)
         hpi.pages_slots = dict()
         hpi.nb_pages_de_donnees = buffer[0]
         for p in buffer[1:]:
@@ -116,6 +119,7 @@ class HeapFile:
             hpi.pages_slots[pid] = slots
 
     def write_header_page_info(self, buffer, hpi):
+        check_buffer(buffer)
         buffer.append(hpi.nb_pages_de_donnees)
         for (key, value) in hpi.pages_slots.items():
             buffer.append(str(key) + DATA_SEP + str(value))
@@ -148,6 +152,7 @@ class HeapFile:
         self.buffer.free_page(hpid, True)
 
     def write_record_in_buffer(self, record, buffer, position):
+        check_buffer(buffer)
         data = bytes()
         counter = 0
         for attr in record.attributes:
@@ -205,6 +210,7 @@ class DiskManager:
         f.close()
 
     def write_page(self, pid, buffer):
+        check_buffer(buffer)
         f = open(os.path.join(DATABASE, pid.get_file_name()), 'rb+')
         f.seek(pid.idx)
         f.write(bytes(DATA_SEP.join(buffer), 'utf-8'))
