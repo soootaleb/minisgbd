@@ -72,6 +72,12 @@ class PageBitmapInfo:
     slots_status = [] # Will be a list of bytes from integers using int.to_bytes
 
 class HeapFile:
+    '''
+        Using:
+            - PageDirectory
+            - Unpacked/Bitmap
+            - Fixed records size
+    '''
     buffer = None
     relation = None
 
@@ -80,6 +86,11 @@ class HeapFile:
         self.relation = relation
 
     def insert_record(self, record):
+        '''
+            Public API to insert a record, used by the GlobalManager.
+
+            Using the BufferManager, gets the PageId of a free page & insert the record (arg) in it.
+        '''
         pid = self.get_free_page_id(self.buffer)
         self.insert_record_in_page(self.buffer, record, pid)
 
@@ -111,6 +122,13 @@ class HeapFile:
         buffer += pbi.slots_status[self.relation.slot_count]
 
     def create_header(self):
+        '''
+            Creates the header page of the heap file using the DiskManager.
+            Using the BufferManager, writes ```0``` as the HeapFile is (for now) empty = zero pages.
+            
+            - The disk file written on is described by ```HeapFile.relation.file_id```
+            - Calls the BufferManager to handle page modification
+        '''
         pid = self.buffer.disk.add_page(self.relation.file_id)
         page = self.buffer.get_page(pid)
         page.append(0)
@@ -128,12 +146,18 @@ class HeapFile:
             hpi.pages_slots[pid] = slots
 
     def write_header_page_info(self, buffer, hpi):
+        '''
+            Loads HPI data into the buffer
+        '''
         check_buffer(buffer)
         buffer.append(hpi.nb_pages_de_donnees)
         for (key, value) in hpi.pages_slots.items():
             buffer.append(str(key) + DATA_SEP + str(value))
 
     def get_header_page_info(self, hpi):
+        '''
+            Loads header page infos into the HeaderPageInfo passed as a parameter (hydrates)
+        '''
         pid = PageId(self.relation.file_id)
         pid.idx = 0
         page = self.buffer.get_page(pid)
@@ -141,6 +165,11 @@ class HeapFile:
         self.buffer.free_page(pid, False)
 
     def update_header_with_new_data_page(self, pid):
+        '''
+            Updates the header page informations with the current ```HeapFile.relation.slot_count``` value.
+
+            To call when ```slot_count``` is modified to update the header page.
+        '''
         hpid = PageId(self.relation.file_id)
         hpid.idx = 0
         page = self.buffer.get_page(hpid)
@@ -151,6 +180,11 @@ class HeapFile:
         self.buffer.free_page(pid, True)
 
     def update_header_taken_slot(self, pid):
+        '''
+            Update the header page informations ```pages_slots``` by decrementing the value corresponding to the pid arg.
+
+            To call when a slot is used to update header page.
+        '''
         hpid = PageId(self.relation.file_id)
         hpid.idx = 0
         page = self.buffer.get_page(hpid)
@@ -161,6 +195,9 @@ class HeapFile:
         self.buffer.free_page(hpid, True)
 
     def write_record_in_buffer(self, record, buffer, position):
+        '''
+            FIXME: Can't append data to bytes()
+        '''
         check_buffer(buffer)
         data = bytes()
         counter = 0
@@ -176,11 +213,20 @@ class HeapFile:
         buffer[positon] = data
 
     def add_data_page(self):
+        '''
+            Using the DiskManager, adds a page on the file described by ```HeapFile.relation.file_id```
+
+            :retur: The corresponding PageId
+        '''
         pid = self.buffer.disk.add_page(self.relation.file_id)
         self.update_header_with_new_data_page(self.buffer, pid)
         return pid
 
     def get_free_page_id(self):
+        '''
+            Returns the PageId of a free page found based on header page infos.
+            Adds a page if not page is free
+        '''
         hpi = HeaderPageInfo()
         self.get_header_page_info(self.buffer, hpi)
         pid = PageId(self.relation.file_id)
