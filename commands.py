@@ -35,3 +35,8 @@ def insert(args):
     @example: insert user john doe
     '''
     manager.insert(args[0], args[1:])
+
+def read():
+    file = open(os.path.join(DATABASE, 'Data_0.rf'), 'rb')
+    file.seek(0)
+    print(file.read().decode().strip('\x00'))

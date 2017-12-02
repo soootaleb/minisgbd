@@ -6,7 +6,7 @@ import uuid, pickle, os, time, math
 
 class HeaderPageInfo:
     pages_slots = dict()
-    nb_pages_de_donnees = None
+    nb_pages_de_donnees = 0
 
 class PageId:
     idx = None
@@ -91,8 +91,8 @@ class HeapFile:
 
             Using the BufferManager, gets the PageId of a free page & insert the record (arg) in it.
         '''
-        pid = self.get_free_page_id(self.buffer)
-        self.insert_record_in_page(self.buffer, record, pid)
+        pid = self.get_free_page_id()
+        self.insert_record_in_page(record, pid)
 
     def insert_record_in_page(self, record, pid):
         buffer = self.buffer.get_page(pid)
@@ -219,7 +219,7 @@ class HeapFile:
             :retur: The corresponding PageId
         '''
         pid = self.buffer.disk.add_page(self.relation.file_id)
-        self.update_header_with_new_data_page(self.buffer, pid)
+        self.update_header_with_new_data_page(pid)
         return pid
 
     def get_free_page_id(self):
@@ -228,7 +228,7 @@ class HeapFile:
             Adds a page if not page is free
         '''
         hpi = HeaderPageInfo()
-        self.get_header_page_info(self.buffer, hpi)
+        self.get_header_page_info(hpi)
         pid = PageId(self.relation.file_id)
         # Looking for free slots
         for (key, value) in hpi.pages_slots.items():
@@ -236,7 +236,7 @@ class HeapFile:
                 pid.idx = key
                 return pid
         # If no slot has been found free
-        return self.add_data_page(self.buffer)
+        return self.add_data_page()
 
 class DiskManager:
     '''
@@ -273,7 +273,8 @@ class DiskManager:
         pid = PageId(file_id)
         file_name = mount_file_name(pid.file_id)
         f = open(os.path.join(DATABASE, file_name), 'ab')
-        pid.idx = f.tell()
+        pid.idx = int(f.tell() / PAGE_SIZE)
+        f.write(bytes([0 for i in range(PAGE_SIZE)]))
         f.close()
         return pid
 
@@ -287,7 +288,7 @@ class DiskManager:
         f = open(os.path.join(DATABASE, pid.get_file_name()), 'rb')
         f.seek(pid.idx)
         content = f.read(PAGE_SIZE)
-        buffer.append(content.decode().split(DATA_SEP))
+        buffer += [o for o in content.decode().strip('\x00').split(DATA_SEP) if bool(o)]
         f.close()
 
     def write_page(self, pid, buffer):
@@ -302,7 +303,7 @@ class DiskManager:
         check_buffer(buffer)
         f = open(os.path.join(DATABASE, pid.get_file_name()), 'rb+')
         f.seek(pid.idx)
-        f.write(bytes(DATA_SEP.join([o if o is not None else '' for o in buffer]), 'utf-8'))
+        f.write(bytes(DATA_SEP.join([o if o is not None else '' for o in buffer]) + DATA_SEP, 'utf-8'))
         f.close()
 
 class BufferManager:
@@ -323,7 +324,7 @@ class BufferManager:
     
     def get_page(self, pid):
         # If the PageId is not in memory, we call the DiskManager to read the page from disk
-        if pid not in self.pages_states.keys():
+        if pid.idx not in self.pages_states.keys():
             arr = []
             self.disk.read_page(pid, arr)
             
@@ -378,7 +379,7 @@ class GlobalManager:
         with open(os.path.join(DATABASE, 'Catalog.def'), 'wb') as output:
             pickle.dump(self.dbdef, output, pickle.HIGHEST_PROTOCOL)
 
-    def calculate_record_size(self, columns_types):
+    def calculate_record_size(columns_types):
         count = 0
         for column in columns_types:
             if column == 'int' or column == 'float':
@@ -392,7 +393,7 @@ class GlobalManager:
                 raise MiniColumnTypeError('Type {} is not correct'.format(column))
         return count
 
-    def calculate_slot_count(self, record_size, page_size):
+    def calculate_slot_count(record_size, page_size):
         return math.floor(page_size / (record_size + 1))        
 
     def create_relation(self, name, columns_number, columns_types):
@@ -404,9 +405,13 @@ class GlobalManager:
         self.dbdef.counter += 1
         self.buffer.disk.create_file(rel_def.file_id)
         hf = HeapFile(rel_def, self.buffer)
-        hf.create_header(self.buffer)
+        hf.create_header()
         self.files.append(hf)
 
     def insert(self, relation, values):
         rec = Record()
         rec.set_values(values)
+        for idx, val in enumerate(self.dbdef.relations):
+            if relation == val.rel_schema.name:
+                hf = self.files[idx]
+                hf.insert_record(rec)

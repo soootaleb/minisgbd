@@ -5,14 +5,13 @@ from settings import *
 import os
 
 try:
-    os.remove(os.path.join(DATABASE, 'Data_0.rf'))
+    for o in os.listdir(DATABASE):
+        os.remove(os.path.join(DATABASE, o))
 except:
     pass
 
-# CREATE
-
 for args in [
-    ['create', 'user', 'int', 'string20']
+    ['user', 'int', 'string3']
 ]:
     cprint(args)
     create(args)
@@ -20,10 +19,11 @@ for args in [
 # INSERT
 
 for args in [
-    ['insert', 'user', 'john', 'doe'],
+    ['user', '345', 'doe'],
 ]:
     cprint(args)
     insert(args)
 
+read()
 
 exit(0)

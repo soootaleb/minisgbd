@@ -1,6 +1,11 @@
 from helpers import *
 import importlib
 
+import os
+
+for o in os.listdir(DATABASE):
+    os.remove(os.path.join(DATABASE, o))
+
 commands = importlib.import_module('commands')
 
 cprint('Welcome on MiniSGBD')
