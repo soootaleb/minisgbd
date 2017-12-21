@@ -1,3 +1,7 @@
+# MiniSGBD (MiniDBMS)
+
+MiniDBMS is a school project aiming to implement a relationnal database management system.
+
 TODO:
 
 1. ~~Refactor buffer_manager~~
